@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from zeep import Client, Settings, xsd
 from zeep.exceptions import Fault
 from zeep.wsse.username import UsernameToken
