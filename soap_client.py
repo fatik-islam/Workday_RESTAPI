@@ -10,7 +10,7 @@ class WorkdaySOAPClient:
     This implementation calls the Get_Workers operation so that the outgoing SOAP envelope
     matches the SoapUI sample.
 
-    The SOAP envelope sample from SoapUI:
+    The sample SOAP request in SOAP UI looks like this:
 
     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" 
                       xmlns:bsvc="urn:com.workday/bsvc">
@@ -26,7 +26,7 @@ class WorkdaySOAPClient:
         </soapenv:Body>
     </soapenv:Envelope>
 
-    Although the XML sample uses <bsvc:Get_Workers_Request>, the actual WSDL defines the operation as Get_Workers.
+    Although the request XML uses <bsvc:Get_Workers_Request>, the WSDL defines the operation as Get_Workers.
     """
 
     def __init__(self, wsdl_url, username, password, tenant):
@@ -45,14 +45,16 @@ class WorkdaySOAPClient:
     def get_workers(self):
         """
         Retrieves a list of workers by calling the SOAP operation Get_Workers.
-        The response is serialized, and Worker_ID, First_Name, Last_Name, and Email are extracted.
+        Instead of extracting only a few fields, this version returns the entire
+        serialized worker object, which includes all available parameters such as
+        email addresses, phone numbers, addresses, personal and employment details, etc.
         """
         try:
-            # Create the SOAP header using the WSDL-defined element and wrap it in a list.
+            # Create the SOAP header using the WSDL-defined element.
             header_factory = self.client.get_element('{urn:com.workday/bsvc}Workday_Common_Header')
             header_obj = header_factory()  # no subelements required
 
-            # Include a Response_Group to request personal information.
+            # Call the Get_Workers operation with a Response_Group that requests personal information.
             response = self.client.service.Get_Workers(
                 _soapheaders=[header_obj],
                 version="v43.2",
@@ -63,49 +65,18 @@ class WorkdaySOAPClient:
                 }
             )
 
+            # Serialize the SOAP response into a Python dictionary.
             serialized_response = serialize_object(response)
             print("Serialized SOAP Response (get_workers):")
             print(serialized_response)
 
-            workers_list = []
+            # Get the list of workers from the Response_Data.
             workers = serialized_response.get("Response_Data", {}).get("Worker", [])
             if not isinstance(workers, list):
                 workers = [workers]
 
-            for worker in workers:
-                worker_data = worker.get("Worker_Data", {})
-                worker_id = worker_data.get("Worker_ID")
-
-                # Process the personal data to extract name details.
-                personal_data = worker_data.get("Personal_Data", {})
-                name_data = personal_data.get("Name_Data", {})
-
-                legal_name = name_data.get("Legal_Name_Data", {})
-                # Check if Legal_Name_Data has a nested Name_Detail_Data
-                if "Name_Detail_Data" in legal_name:
-                    name_detail = legal_name.get("Name_Detail_Data", {})
-                    first_name = name_detail.get("First_Name")
-                    last_name = name_detail.get("Last_Name")
-                else:
-                    first_name = legal_name.get("First_Name")
-                    last_name = legal_name.get("Last_Name")
-
-                # Process the contact data (if available)
-                contact_data = worker_data.get("Contact_Data", {})
-                email_list = contact_data.get("Email_Address_Data", [])
-                email = None
-                if isinstance(email_list, list) and email_list:
-                    email = email_list[0].get("Email_Address")
-                elif isinstance(email_list, dict):
-                    email = email_list.get("Email_Address")
-
-                workers_list.append({
-                    "Worker_ID": worker_id,
-                    "First_Name": first_name,
-                    "Last_Name": last_name,
-                    "Email": email
-                })
-            return workers_list
+            # Return the complete worker objects as received.
+            return workers
 
         except Fault as fault:
             raise Exception(f"SOAP Fault: {fault}")
@@ -123,4 +94,3 @@ if __name__ == '__main__':
     workers = client.get_workers()
     for w in workers:
         print(w)
-
