@@ -2,4 +2,5 @@ Flask==2.3.2
 zeep==4.1.0
 requests==2.31.0
 python-dotenv==1.0.0
-
+Flask-JWT-Extended==4.5.2
+xmltodict==0.12.0
